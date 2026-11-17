@@ -1,0 +1,118 @@
+django-admin startproject myproject
+cd myproject
+python manage.py startapp main
+
+
+go to myproject/settings
+and add main at the very bottom 
+
+then open main then models.py
+paste
+from django.db import models
+
+class Student(models.Model):
+    name = models.CharField(max_length=50)
+    email = models.EmailField()
+
+
+python manage.py makemigrations
+python manage.py migrate
+
+
+then go to mains/views.py
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import Student
+
+# 1. VIEW (Show all students)
+def index(request):
+    students = Student.objects.all()
+    return render(request, 'index.html', {'students': students})
+
+# 2. ADD (Create new student)
+def add_student(request):
+    if request.method == 'POST':
+        Student.objects.create(
+            name=request.POST['name'],
+            email=request.POST['email']
+        )
+        return redirect('index')
+    return render(request, 'form.html')
+
+# 3. EDIT (Update existing student)
+def edit_student(request, id):
+    s = get_object_or_404(Student, id=id)
+    if request.method == 'POST':
+        s.name = request.POST['name']
+        s.email = request.POST['email']
+        s.save()
+        return redirect('index')
+    return render(request, 'form.html', {'s': s})
+
+# 4. DELETE (Remove student)
+def delete_student(request, id):
+    s = get_object_or_404(Student, id=id)
+    s.delete()
+    return redirect('index')
+
+
+
+go to myproject/urls.py
+from django.contrib import admin
+from django.urls import path
+from main import views
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', views.index, name='index'),
+    path('add/', views.add_student, name='add'),
+    path('edit/<int:id>/', views.edit_student, name='edit'),
+    path('delete/<int:id>/', views.delete_student, name='delete'),
+]
+
+
+
+in main create templates then index.html and form.html
+
+
+index.html
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Students</h2>
+    <a href="{% url 'add' %}">Add Student</a>
+    <table border="1">
+        <tr><th>ID</th><th>Name</th><th>Email</th><th>Action</th></tr>
+        {% for s in students %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.email }}</td>
+            <td>
+                <a href="{% url 'edit' s.id %}">Edit</a>
+                <a href="{% url 'delete' s.id %}">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Student Form</h2>
+    <form method="POST">
+        {% csrf_token %}
+        Name: <input type="text" name="name" value="{{ s.name }}" required><br><br>
+        Email: <input type="email" name="email" value="{{ s.email }}" required><br><br>
+        <button type="submit">Save</button>
+    </form>
+    <a href="{% url 'index' %}">Back</a>
+</body>
+</html>
+
+
+
+python manage.py runserver
+

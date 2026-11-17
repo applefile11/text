@@ -1,0 +1,163 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+python -m venv .venv
+.venv\Scripts\Activate
+
+
+
+pip install flask
+pip install flask-sqlalchemy
+pip install flask-wtf email-validator
+
+
+
+#file 
+models.py
+app.py
+forms.py
+
+
+#templates folder
+index.html
+register.html
+
+
+
+models.py
+from flask_sqlalchemy import SQLAlchemy
+
+db=SQLAlchemy()
+
+class student(db.Model):
+    __tablename__ = 'students'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(50), nullable=False , unique=True)
+
+
+forms.py
+from flask_wtf import FlaskForm
+from wtforms import StringField,SubmitField
+from wtforms.validators import DataRequired,Length
+
+
+class RegistrationForm(FlaskForm):
+    name= StringField('fullname', validators =[DataRequired(), Length(min=2,max=50)])      
+    email = StringField('Email' , validators=[DataRequired(), Length(min=2,max=50)])
+    submit = SubmitField('save')
+
+
+app.py
+from flask import Flask, render_template, redirect, url_for
+from models import db, student
+from forms import RegistrationForm
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///students.db'
+
+db.init_app(app)
+with app.app_context():
+    db.create_all()
+
+@app.route('/')
+def index():
+    return render_template('index.html', students=student.query.all())
+
+@app.route('/add', methods=['GET', 'POST'])
+def add_student():
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        db.session.add(student(name=form.name.data, email=form.email.data))
+        db.session.commit()
+        return redirect(url_for('index'))
+    return render_template('register.html', form=form, title='Add')
+
+@app.route('/edit/<int:id>', methods=['GET', 'POST'])
+def edit_student(id):
+    s = student.query.get_or_404(id)
+    form = RegistrationForm(obj=s)
+    if form.validate_on_submit():
+        s.name, s.email = form.name.data, form.email.data
+        db.session.commit()
+        return redirect(url_for('index'))
+    return render_template('register.html', form=form, title='Edit')
+
+@app.route('/delete/<int:id>', methods=['POST'])
+def delete_student(id):
+    db.session.delete(student.query.get_or_404(id))
+    db.session.commit()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+index.html
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Students</h2>
+    <a href="{{ url_for('add_student') }}">Add Student</a>
+    <table border="1">
+        <tr><th>ID</th><th>Name</th><th>Email</th><th>Action</th></tr>
+        {% for s in students %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.email }}</td>
+            <td>
+                <a href="{{ url_for('edit_student', id=s.id) }}">Edit</a>
+                <form action="{{ url_for('delete_student', id=s.id) }}" method="POST">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+
+
+
+register.html
+
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>{{ title }} Student</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <p>{{ form.name.label }}: {{ form.name() }}</p>
+        <p>{{ form.email.label }}: {{ form.email() }}</p>
+        <p>{{ form.submit() }}</p>
+    </form>
+    <a href="{{ url_for('index') }}">Back</a>
+</body>
+</html>
